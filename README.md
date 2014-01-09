@@ -11,3 +11,10 @@ Boty powinny się znaleźć w pliku players.py i szanować interfejs klasy Playe
 
 Wybór botów do walki:
 https://github.com/pianiel/atg-game/blob/master/game.py#L169
+
+    players_cls = [
+        players.Incrementer, 
+        players.IncrementerRandomChecker,
+        players.Incrementer,
+        players.IncrementerRandomChecker
+    ]
