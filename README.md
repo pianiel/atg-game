@@ -18,3 +18,7 @@ https://github.com/pianiel/atg-game/blob/master/game.py#L169
         players.Incrementer,
         players.IncrementerRandomChecker
     ]
+
+Uruchamianie:
+
+    python game.py
