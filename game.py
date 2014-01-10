@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 import random
-import sys
 import players
 
 DEBUG = False
