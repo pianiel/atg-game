@@ -16,14 +16,17 @@ Boty wcale nie muszą znaleźć się się znaleźć w pliku players.py. Mogę gd
 Natomiast niezmiennie "szanować" muszą interfejs klasy Player ;)
 
 Wybór botów do walki:
-https://github.com/mjkpl/atg-game/blob/master/game.py#L169
+https://github.com/mjkpl/atg-game/blob/master/game.py#L241
+
+Wpis jest tuplą, której pierwszy element to identyfikator (human readable) bota, a drugi to jego klasa.
 
     players_cls = [
-        players.Incrementer, 
-        players.IncrementerRandomChecker,
-        players.Incrementer,
-        players.IncrementerRandomChecker
+        ("Incrementer1", players.Incrementer),
+        ("IncrementerRandom1", players.IncrementerRandomChecker),
+        ("Incremeter2", players.Incrementer),
+        ("IncrementerRandom2", players.IncrementerRandomChecker)
     ]
+
 
 Uruchamianie:
 
