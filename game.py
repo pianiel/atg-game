@@ -1,122 +1,170 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 import random
+import sys
 import players
 
 DEBUG = False
-# DEBUG = True
-
-from collections import defaultdict, Counter
-# stats = defaultdict(int)
 
 class Game(object):
 
+    class PlayerState():
+        def __init__(self, player_class, player_id, name):
+            self.dices = []
+            self.dices_count = 1
+            self.wins = 0
+            self.loses = 0
+            self.player_class = player_class
+            self.name = name
+
+            self.player = self.player_class()
+            self.id = player_id
+            self.player.setName(self.name)
+
+        def start_round(self):
+            self._random_dices()
+            self.player.start(self.dices)
+
+        def player_loses(self):
+            self.loses += 1
+            self.dices_count += 1
+
+        def player_wins(self):
+            self.wins += 1
+
+        def _random_dices(self):
+            self.dices = ''.join(sorted([str(random.randint(1, 6)) for _ in range(self.dices_count)]))
+
+            if DEBUG:
+                print "%s: dices: %s" % (self.id, self.dices)
+
     def __init__(self, players_cls):
-        self.n = 4
-        self.k = [1,1,1,1]
-        self.win = [0,0,0,0]
-        self.loss = [0,0,0,0]
-        self.scores = [0]*self.n
         self.players = []
-        for i in range(len(players_cls)):  #self.n):
-            p = players_cls[i]()
-            p.setName(i+1)
-            self.players.append(p)
+        self.round_number = 0
+        self.starting_player = 0
+
+        for i, (player_id, player_class) in enumerate(players_cls):
+            self.players.append(self.PlayerState(player_class, player_id, i+1))
 
     def play(self, n_rounds=5):
-        first = 0
+
+        if DEBUG:
+            print "\n### New game, players: %s " % (map(lambda p: p.id, self.players))
+
         for i in range(n_rounds):
-            if DEBUG: print "### NEW ROUND %s ###" % `i+1`
-            self.init_round()
-            first = self.run_round(first)
-        if DEBUG: print "scores", self.scores
-        if DEBUG: print "dice counts", self.k
+            self._run_round()
+
+        scores = []
+        for i, player in enumerate(self.players):
+            scores.append((player.id, player.wins - player.loses))
+
+            if DEBUG:
+                print "%s: wins: %i, loses: %i, score: %i" % \
+                      (player.id, player.wins, player.loses, player.wins - player.loses)
 
 
-    def init_round(self):
-        for i,p in enumerate(self.players):
-            p.start(self.gen_dices(self.k[i]))
+        scores = sorted(scores, cmp = lambda x, y: cmp(x[1], y[1]), reverse = True)
 
-    def succ(self, i):
-        return (i + 1) % self.n
+        winners = []
+        max_score = scores[0][1]
+        for id, score in scores:
+            if score == max_score:
+                winners.append(id)
+            else:
+                break
 
-    def pred(self, i):
-        return (i + self.n - 1) % self.n
+        return winners
 
-    def run_round(self, first):
-        dices = []
-        points = [0] * self.n
+    def _succ(self, i):
+        """
+        Funkcja zwraca numer następnego gracza
+        """
+        return (i + 1) % len(self.players)
+
+    def _pred(self, i):
+        """
+        Funkcja zwraca numer poprzedniego gracza
+        """
+        return (i + len(self.players) - 1) % len(self.players)
+
+    def _run_round(self):
+        self.round_number += 1
+
+        for player in self.players:
+            player.start_round()
+
+        curr_player = self.starting_player
         history = []
-        for p in self.players:
-            if DEBUG: print "player:%d, dices: %s" % (p.name, p.dice)
-            dices.append(''.join(sorted(p.dice)))
-            ended = False
-        curr = first-1
-        if DEBUG: print 'state:', self.dice_state()
-        # badyet = False
-        while not ended:
-            curr = self.succ(curr)
-            if DEBUG: print "player", curr+1,
-            p = self.players[curr]
+
+        while True:
+            p = self.players[curr_player].player
             move = p.play(history)
-            # if not badyet and not self.is_in_dices(move, self.dice_state()):
-            #     badyet = True
-            #     stats[self.dice_state()] += 1
-            if DEBUG: print "move", move
-            if not self.is_valid(move) or (history and self.cmp_subs(move, history[0][1]) <= 0):
-                ended = True
-                if not self.is_valid(move):
-                    if DEBUG: print "# sub %s not valid, player %d loses, player %d wins" % (move, curr+1, self.pred(curr)+1)
-                else:
-                    if DEBUG: print "# sub %s not higher than %s, player %d loses, player %d wins" % (move,history[0][1], curr+1, self.pred(curr)+1)
-                self.k[curr] += 1
-                points[curr] = -1
-                points[self.pred(curr)] = 1
+
+            if DEBUG:
+                print "%s: move: %s" % (self.players[curr_player].id, move)
+
+            if not self._is_valid(move) or not self._is_older_than_last(move, history):
+                self._round_results(self._pred(curr_player), curr_player)
+                break
+
             if move == "CHECK":
-                ended = True
-                if DEBUG: print 'state',self.dice_state()
-                if self.is_in_dices(history[0][1], self.dice_state()):
-                    if DEBUG: print "# player", curr+1, "loses"
-                    if DEBUG: print "# player", self.pred(curr)+1, "wins"
-                    self.k[curr] += 1
-                    points[curr] = -1
-                    points[self.pred(curr)] = 1
+                if DEBUG:
+                    print "%s checks" % (self.players[curr_player].id, )
+
+                if self._is_in_dices(history[0][1], self.dice_state()):
+                    self._round_results(self._pred(curr_player), curr_player)
                 else:
-                    if DEBUG: print "# player", self.pred(curr)+1, "loses"
-                    if DEBUG: print "# player", curr+1, "wins"
-                    points[curr] = 1
-                    self.k[self.pred(curr)] += 1
-                    points[self.pred(curr)] = -1
-                    curr = self.pred(curr) # zeby przegrany zaczynal gre
-            history.insert(0, (curr+1, move))
-        for p in self.players:
-            p.result(points, dices)
-        if DEBUG: print "result(points=%s, dices=%s)" % (points, dices)
-        self.scores = [s+p for s,p in zip(self.scores,points)]
-        self.win[points.index(1)] += 1
-        self.loss[points.index(-1)] += 1
-        return curr
+                    self._round_results(curr_player, self._pred(curr_player))
+                break
+
+            history.insert(0, (curr_player + 1, move))
+            curr_player = self._succ(curr_player)
+
+        self.give_results_to_players()
+
+    def _round_results(self, winner, loser):
+        """
+        Funkcja zawiera logikę wykonywaną przy zakończeniu rundy. Przyjmuję numer gracza wygrywającego
+        i przegrywającego oraz uaktualnia statystyki
+        """
+        if DEBUG:
+            print "%s wins, player %s loses" % (self.players[winner].id, self.players[loser].id)
+
+        self.players[winner].player_wins()
+        self.players[loser].player_loses()
+        self.starting_player = loser
+
+    def give_results_to_players(self):
+        """
+        Funkcja wywołuje na graczach metodę result przekazując im wyniki po rundzie
+        """
+        points = [p.wins - p.loses for p in self.players]
+        dices = [p.dices for p in self.players]
+
+        if DEBUG:
+            print "points: %s, dices: %s" % (points, dices)
+
+        for player in self.players:
+            player.player.result(points, dices)
 
     def dice_state(self):
-        state = []
-        for p in self.players:
-            state.extend(p.dice)
-        return ''.join(sorted(state))
+        return ''.join(sorted([p.dices for p in self.players]))
 
-    def gen_dices(self, k):
-        return [str(int(random.random()*6 + 1)) for _ in range(k)]
-
-    def is_in_dices(self, s, d):
+    @staticmethod
+    def _is_in_dices(submission, state):
         '''
         funkcja przyjmujaca zgloszenie i zwracajaca True gdy zgloszenie jest dobre
         '''
-        # print 's,d',s,d
-        for i in range(len(s)):
-            if s[i] > d[i]:
+
+        for i in range(len(submission)):
+            if submission[i] > state[i]:
                 return False
+
         return True
 
-    def cmp_subs(self, s1, s2):
+    @staticmethod
+    def _cmp_subs(s1, s2):
         '''
         funkcja przyjmujaca dwa zgloszenia i zwracajaca
              1 gdy s1 jest starsze od s2
@@ -126,52 +174,77 @@ class Game(object):
         # leksykograficznie porownaj odwrocone zgloszenia
         return cmp(s1[::-1], s2[::-1])
 
-    def is_valid(self, s):
-        if s == "CHECK":
+    def _is_valid(self, submission):
+        """
+        Funkcja sprawdza czy zgłoszenie jest prawidłowe, tj.:
+           - ma odpowiednią długość
+           - ma liczby z zakresu 1-6
+           - jest dobrze posortowane
+        """
+        if submission == "CHECK":
             return True
-        if len(s) != sum(self.k):
-            return False
-        if not all(map(lambda x: '0' < x < '7', s)):
-            return False
-        return s==''.join(sorted(s))
+        if len(submission) != len(self.players) + self.round_number - 1:
 
+            if DEBUG:
+                print "submission %s has wrong length" % (submission, )
+
+            return False
+
+        if not all(map(lambda x: '1' <= x <= '6', submission)):
+
+            if DEBUG:
+                print "submission %s has wrong numbers" % (submission, )
+
+            return False
+
+        if submission != ''.join(sorted(submission)):
+
+            if DEBUG:
+                print "submission %s has wrong order" % (submission, )
+
+            return False
+
+        return True
+
+    def _is_older_than_last(self, submission, history):
+        """
+        Fukncja sprawdza czy podane zgłoszenie jest starsze od ostatniego w historii
+        """
+        if len(history) > 0 and self._cmp_subs(submission, history[0][1]) <= 0:
+
+            if DEBUG:
+                print "submission %s is not older than last in history %s" % (submission, history[0][1])
+
+            return False
+        return True
 
 def main(players_cls, n_games):
-    win = [0,0,0,0]
-    loss = [0,0,0,0]
-    scores = [0,0,0,0]
-    rounds = [0,0,0,0]
-    for _ in range(n_games):
-        g = Game(players_cls)
-        g.play(n_rounds=5)
-        for i in range(len(win)):
-            win[i] += g.win[i]
-            loss[i] += g.loss[i]
-            scores[i] += g.scores[i]
-        sm = max(g.scores)
-        for i in range(len(g.scores)):
-            if g.scores[i] == sm:
-                rounds[i] += 1
-    for i in range(len(players_cls)):
-        print 'wins: %d\t| score: %d\t| rounds won: %d\t| rounds lost: %d\t| player: %s' %  \
-            (rounds[i], scores[i], win[i], loss[i],players_cls[i].__name__)
-    # means = {}
-    # for s,c in stats.items():
-    #     means[s] = sum([float(e) for e in s])/len(s)
-    # means = {(s,sum([float(e) for e in s])/len(s)) for s, c in stats.items()]}
-    # cnt = Counter(stats).most_common(10)
-    # print cnt
-    # print [(s,means[s]) for s,c in cnt]
-    # print means
-    # print Counter(means).most_common(10)
 
+    scores = {}
+    for player_id, _ in players_cls:
+        scores[player_id] = 0
+
+    for _ in range(n_games):
+        random.shuffle(players_cls)
+        g = Game(players_cls)
+        winners = g.play(n_rounds=5)
+
+        for winner in winners:
+            scores[winner] += 1
+
+    for player_id, player_score in scores.items():
+        print "%s: %i" % (player_id, player_score)
+
+    print ""
 
 if __name__ == '__main__':
     players_cls = [
-        players.Incrementer, 
-        players.IncrementerRandomChecker,
-        players.Incrementer,
-        players.IncrementerRandomChecker
+        ("Incrementer1", players.Incrementer),
+        ("IncrementerRandom1", players.IncrementerRandomChecker),
+        ("Incrementer2", players.Incrementer),
+        ("IncrementerRandom2", players.IncrementerRandomChecker)
     ]
-    n_games = 100
+
+    n_games = 10
+
     main(players_cls, n_games)
