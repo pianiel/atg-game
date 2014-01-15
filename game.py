@@ -170,8 +170,8 @@ class Game(object):
              0 gdy s1 jest rowne s2
             -1 gdy s1 jest mlodsze od s2
         '''
-        # leksykograficznie porownaj odwrocone zgloszenia
         return int(s1) < int(s2)
+        # leksykograficznie porownaj odwrocone zgloszenia
         # return cmp(s1[::-1], s2[::-1])
 
     def _is_valid(self, submission):
@@ -210,6 +210,8 @@ class Game(object):
         """
         Fukncja sprawdza czy podane zgłoszenie jest starsze od ostatniego w historii
         """
+        if submission == 'CHECK':
+            return True
         if len(history) > 0 and self._cmp_subs(submission, history[0][1]) <= 0:
 
             if DEBUG:
