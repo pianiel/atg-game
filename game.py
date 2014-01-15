@@ -171,7 +171,8 @@ class Game(object):
             -1 gdy s1 jest mlodsze od s2
         '''
         # leksykograficznie porownaj odwrocone zgloszenia
-        return cmp(s1[::-1], s2[::-1])
+        return int(s1) < int(s2)
+        # return cmp(s1[::-1], s2[::-1])
 
     def _is_valid(self, submission):
         """
